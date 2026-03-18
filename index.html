@@ -971,7 +971,7 @@
                 if (typeof p.stockEndTime === "number") state.stockEndTime = p.stockEndTime;
                 if (typeof p.stockState === "string") state.stockState = p.stockState;
                 if (p.stocks && typeof p.stocks === "object") state.stocks = p.stocks;
-                //if (Array.isArray(p.games)) state.games = p.games;
+                if (Array.isArray(p.games)) state.games = p.games;
                 renderAll();
             });
         }
