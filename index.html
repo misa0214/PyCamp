@@ -495,6 +495,14 @@
                     <button onclick="modLotteryTime(-5)" class="flex-1 bg-gray-800 text-red-400 border border-white/10 rounded py-2 text-xs font-bold">-5m</button>
                     <button onclick="resetLotteryTime()" class="flex-1 bg-gray-700 text-white border border-white/10 rounded py-2 text-xs font-bold">RESET</button>
                 </div>
+                <div class="flex items-center justify-between mt-3 mb-2 bg-black/40 p-2 rounded border border-[#d4af37]/20">
+                    <span class="text-[10px] text-[#d4af37]/70 font-bold tracking-widest">SECRET RIG (暗箱)</span>
+                    <div class="flex gap-2" id="admin-rig-balls">
+                        <div class="mini-ball ball-gray cursor-pointer" style="width: 20px; height: 20px; margin: 0;" onclick="cycleRig(0)" title="点击切换预设颜色"></div>
+                        <div class="mini-ball ball-gray cursor-pointer" style="width: 20px; height: 20px; margin: 0;" onclick="cycleRig(1)" title="点击切换预设颜色"></div>
+                        <div class="mini-ball ball-gray cursor-pointer" style="width: 20px; height: 20px; margin: 0;" onclick="cycleRig(2)" title="点击切换预设颜色"></div>
+                    </div>
+                </div>
                 <button onclick="autoSettleLottery()" class="w-full bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/50 rounded py-2 text-xs font-bold hover:bg-[#d4af37]/40">FORCE DRAW NOW</button>
                 <div class="flex gap-2 mt-1">
                     <input id="input-jackpot" type="number" class="bg-black border border-white/20 text-white text-xs p-2 w-24 text-center font-num" placeholder="¥ Amount">
@@ -855,6 +863,20 @@
         const COLORS = ['ball-red', 'ball-green', 'ball-blue'];
         let __drawAnimTimer = null;
         let __drawAnimRunning = false;
+        let __riggedResult = [null, null, null]; // null 表示真随机
+        function cycleRig(index) {
+            if (!__isAdmin) return;
+            const rigColors = [null, 'ball-red', 'ball-green', 'ball-blue'];
+            let current = __riggedResult[index];
+            let nextIdx = current === null ? 1 : rigColors.indexOf(current) + 1;
+            if (nextIdx >= rigColors.length) nextIdx = 0; // 循环切换
+            
+            __riggedResult[index] = rigColors[nextIdx];
+            
+            // 更新控制台UI显示
+            const el = document.getElementById('admin-rig-balls').children[index];
+            el.className = `mini-ball cursor-pointer ${rigColors[nextIdx] || 'ball-gray'}`;
+        }
         function autoSettleLottery() {
           if (!__isAdmin) { alert('Admin only'); return; }
           state.lotteryState = 'DRAWING'; state.lotteryResult = null; saveState();
@@ -869,12 +891,24 @@
           setTimeout(() => { clearInterval(interval); finalizeLotteryDraw(); }, 5000);
         }
         function finalizeLotteryDraw() {
-          if (!__isAdmin) { alert('Admin only'); return; }
-          const r1 = COLORS[Math.floor(Math.random()*3)];
-          const r2 = COLORS[Math.floor(Math.random()*3)];
-          const r3 = COLORS[Math.floor(Math.random()*3)];
-          state.lotteryState = 'RESULT'; state.lotteryResult = [r1, r2, r3]; saveState();
-          setTimeout(() => { resetLotteryTime(); }, 60000);
+            if (!__isAdmin) { alert('Admin only'); return; }
+            
+            // 拦截逻辑：如果有预设颜色则用预设，否则走真随机
+            const r1 = __riggedResult[0] || COLORS[Math.floor(Math.random()*3)];
+            const r2 = __riggedResult[1] || COLORS[Math.floor(Math.random()*3)];
+            const r3 = __riggedResult[2] || COLORS[Math.floor(Math.random()*3)];
+            
+            state.lotteryState = 'RESULT'; 
+            state.lotteryResult = [r1, r2, r3]; 
+            saveState();
+            
+            // 每次开完奖后，自动清空“作弊”状态，恢复为真随机，防止下把忘记改
+            __riggedResult = [null, null, null];
+            document.querySelectorAll('#admin-rig-balls > div').forEach(el => {
+                el.className = 'mini-ball ball-gray cursor-pointer';
+            });
+
+            setTimeout(() => { resetLotteryTime(); }, 60000);
         }
         function modLotteryTime(m) { if (!__isAdmin) { alert('Admin only'); return; } state.lotteryEndTime += m * 60000; saveState(); }
         function resetLotteryTime() { if (!__isAdmin) { alert('Admin only'); return; } state.lotteryEndTime = Date.now() + CONFIG.lotteryDuration * 60000; state.lotteryState='OPEN'; state.lotteryResult = null; saveState(); }
@@ -978,7 +1012,7 @@
         Object.assign(window, {
             setTab, attemptLogin, openGameDetails, closeGameDetails, modLotteryTime, resetLotteryTime,
             autoSettleLottery, finalizeLotteryDraw, modStockTime, resetStockTime, modStock, setJackpot, 
-            editAnno, editGame, logoutAdmin, openShopModal, closeShopModal
+            editAnno, editGame, logoutAdmin, openShopModal, closeShopModal,cycleRig
         });
         init();
     </script>
